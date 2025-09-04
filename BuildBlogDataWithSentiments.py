@@ -1,10 +1,11 @@
-# enrich_and_label_masking_push_safe.py
+# enrich_and_label_masking_push_safe_verbose.py
 import os
 from datetime import datetime
 import pandas as pd
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
 from huggingface_hub import create_repo
 from datasets import load_dataset
+from tqdm import tqdm
 
 # ---------------- Config ----------------
 INPUT_FILES = {"train": "data/train.csv", "validation": "data/validation.csv"}
@@ -14,14 +15,11 @@ DEVICE = 0           # 0 = first GPU, -1 = CPU
 BATCH_SIZE = 32
 CONF_MIN = 0.90      # both models must be >= this to keep the row
 
-# Gen Z window
 GENZ_START, GENZ_END = 1997, 2012
 DATE_IS_BIRTHDATE = True     # True: 'date' is DOB like "23,November,2002"
 
-# Optional row cap for quick testing (None for full)
-ROWS_LIMIT = None
+ROWS_LIMIT = 200            # e.g., 200 for a quick test, or None for full
 
-# Push to Hugging Face
 PUSH_TO_HUB = True
 HF_REPO_ID = os.environ.get("HF_REPO_ID", "tarashagarwal/genz-persona-simulation")
 HF_PRIVATE = True
@@ -30,8 +28,10 @@ HF_PRIVATE = True
 
 # ---------- helpers ----------
 def parse_year(s: str) -> int | None:
-    try: return datetime.strptime(str(s).strip(), "%d,%B,%Y").year
-    except Exception: return None
+    try:
+        return datetime.strptime(str(s).strip(), "%d,%B,%Y").year
+    except Exception:
+        return None
 
 def add_genz(df: pd.DataFrame) -> pd.DataFrame:
     if DATE_IS_BIRTHDATE:
@@ -54,7 +54,8 @@ def emo_to_sentiment(label: str) -> str:
 
 REDDIT_MAP = {"LABEL_0": "negative", "LABEL_1": "neutral", "LABEL_2": "positive"}
 
-# ---------- models ----------
+# ---------- models (with loud prints) ----------
+print("🔧 Loading models...")
 emo_clf = pipeline(
     "text-classification",
     model="SamLowe/roberta-base-go_emotions",
@@ -63,6 +64,7 @@ emo_clf = pipeline(
     truncation=True,
     padding=True,
 )
+print("  • GoEmotions pipeline ready on", emo_clf.device)
 
 reddit_model_name = "minh21/XLNet-Reddit-Sentiment-Analysis"
 reddit_tokenizer = AutoTokenizer.from_pretrained(reddit_model_name)
@@ -75,6 +77,8 @@ sent_clf = pipeline(
     truncation=True,
     padding=True,
 )
+print("  • Reddit sentiment pipeline ready on", sent_clf.device)
+print()
 
 def safe_emotions_for_batch(batch_texts):
     """Return lists: top_label, conf, coarse_sentiment. Skips rows that error."""
@@ -130,39 +134,47 @@ def safe_sentiment_for_batch(batch_texts):
     return out_lbls, out_confs
 
 def process_split(in_path: str, out_path: str):
-    # 1) Load
+    print(f"📥 Loading: {in_path}")
     df = pd.read_csv(in_path)
-    if ROWS_LIMIT: df = df.head(ROWS_LIMIT)
+    total_rows = len(df)
+    print(f"  • Rows loaded: {total_rows}")
 
+    if ROWS_LIMIT:
+        df = df.head(ROWS_LIMIT)
+        print(f"  • Limiting to first {ROWS_LIMIT} rows for this run")
+
+    # schema checks
     if "text" not in df.columns:
         raise ValueError(f"`text` column not found in {in_path}")
     if "date" not in df.columns:
         raise ValueError(f"`date` column not found in {in_path}")
 
-    # 2) Gen Z flag
+    print("🧮 Computing Gen Z flags...")
     df = add_genz(df)
+    print("  • Done. Example birth years:", df["birth_year_est"].head(min(3, len(df))).tolist())
 
-    # 3) Emotions (batched, error-safe)
+    print("🧠 Running GoEmotions (batched)...")
     texts = df["text"].astype(str).fillna("").tolist()
+    n = len(texts)
     top_emotion, emo_conf, emo_sent = [], [], []
-    for i in range(0, len(texts), BATCH_SIZE):
+    for i in tqdm(range(0, n, BATCH_SIZE), desc="  GoEmotions batches"):
         tl, tc, ts = safe_emotions_for_batch(texts[i:i+BATCH_SIZE])
         top_emotion.extend(tl); emo_conf.extend(tc); emo_sent.extend(ts)
 
-    # 4) Reddit sentiment (batched, error-safe)
+    print("💬 Running Reddit sentiment (batched)...")
     red_sent, red_conf = [], []
-    for i in range(0, len(texts), BATCH_SIZE):
+    for i in tqdm(range(0, n, BATCH_SIZE), desc="  RedditSent batches"):
         rl, rc = safe_sentiment_for_batch(texts[i:i+BATCH_SIZE])
         red_sent.extend(rl); red_conf.extend(rc)
 
-    # 5) Attach columns
+    print("🧷 Attaching columns...")
     df["top_emotion"] = top_emotion
     df["emotion_conf"] = emo_conf
     df["emotion_sentiment"] = emo_sent
     df["reddit_sentiment"] = red_sent
     df["reddit_conf"] = red_conf
 
-    # 6) Drop rows that errored (None) or low confidence
+    print(f"🔎 Filtering by confidence >= {CONF_MIN} and valid predictions...")
     good = (
         df["top_emotion"].notna()
         & df["emotion_sentiment"].notna()
@@ -173,29 +185,35 @@ def process_split(in_path: str, out_path: str):
     before = len(df)
     df = df.loc[good].reset_index(drop=True)
     dropped = before - len(df)
-    print(f"[{os.path.basename(in_path)}] kept {len(df)} rows, dropped {dropped} (errors/low conf)")
+    print(f"  • Kept {len(df)} rows, dropped {dropped} (errors/low conf)")
 
-    # 7) masking (1 = masked, sentiments differ; 0 = reveal)
+    print("🎭 Computing masking flag (1=masked, 0=reveal)...")
     df["masking"] = (df["emotion_sentiment"] != df["reddit_sentiment"]).astype(int)
+    print("  • Masking rate:", df["masking"].mean() if len(df) else 0.0)
 
-    # 8) Save FINAL file
+    print(f"💾 Saving final: {out_path}")
     df.to_csv(out_path, index=False)
-    print(f"✅ Saved {out_path}")
+    print(f"✅ Saved {out_path} (final rows: {len(df)})\n")
 
 def main():
-    for split in ("train","validation"):
+    print("====== START ======")
+    for split in ("train", "validation"):
+        print(f"\n=== Split: {split} ===")
         process_split(INPUT_FILES[split], OUTPUT_FILES[split])
 
-    # Push both final CSVs to HF Hub as a dataset repo
     if PUSH_TO_HUB:
+        print("☁️  Preparing push to Hugging Face Hub…")
         create_repo(repo_id=HF_REPO_ID, repo_type="dataset", private=HF_PRIVATE, exist_ok=True)
-        # Load the final CSVs as a DatasetDict and push
+        print("  • Loading final CSVs into DatasetDict...")
         ds = load_dataset("csv", data_files={
             "train": OUTPUT_FILES["train"],
             "validation": OUTPUT_FILES["validation"],
         })
+        print("  • Pushing to Hub:", HF_REPO_ID)
         ds.push_to_hub(HF_REPO_ID)
         print(f"🚀 Pushed to https://huggingface.co/datasets/{HF_REPO_ID}")
+
+    print("====== DONE ======")
 
 if __name__ == "__main__":
     main()
