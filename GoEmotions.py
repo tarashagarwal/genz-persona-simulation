@@ -5,7 +5,7 @@ classifier = pipeline(task="text-classification",
                       top_k=None, 
                       device=0)
 
-sentences = ["I am the best"]
+sentences = ["I admire how boldly they messed this up"]
 
 model_outputs = classifier(sentences)
 print(model_outputs[0])

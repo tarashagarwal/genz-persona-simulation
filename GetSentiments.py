@@ -10,8 +10,8 @@ classifier = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
 
 # Test Reddit-style inputs
 examples = [
-    "This update is absolute trash, I'm so mad.",
-    "Honestly, I kind of love the new design lol.",
+    "This is the worst movie I have ever seen.",
+    "I absolutely loved the acting, it was amazing!",
     "Meh... I don’t care either way."
 ]
 

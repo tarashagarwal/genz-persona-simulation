@@ -1,4 +1,4 @@
-# enrich_and_label_masking_push_safe_verbose.py
+# enrich_and_label_masking_push_safe_verbose_top5.py
 import os
 from datetime import datetime
 import pandas as pd
@@ -18,7 +18,7 @@ CONF_MIN = 0.90      # both models must be >= this to keep the row
 GENZ_START, GENZ_END = 1997, 2012
 DATE_IS_BIRTHDATE = True     # True: 'date' is DOB like "23,November,2002"
 
-ROWS_LIMIT = 200            # e.g., 200 for a quick test, or None for full
+ROWS_LIMIT = 200000            # e.g., 200 for a quick test, or None for full
 
 PUSH_TO_HUB = True
 HF_REPO_ID = os.environ.get("HF_REPO_ID", "tarashagarwal/genz-persona-simulation")
@@ -59,7 +59,7 @@ print("🔧 Loading models...")
 emo_clf = pipeline(
     "text-classification",
     model="SamLowe/roberta-base-go_emotions",
-    top_k=None,
+    top_k=None,          # return all labels with scores; we'll sort for top-5
     device=DEVICE,
     truncation=True,
     padding=True,
@@ -80,35 +80,56 @@ sent_clf = pipeline(
 print("  • Reddit sentiment pipeline ready on", sent_clf.device)
 print()
 
+def top5_from_scores(scores):
+    """scores: list[{'label': str, 'score': float}] -> (top1_label, top1_conf, top5_labels[5], top5_scores[5])"""
+    if not scores:
+        return None, None, [None]*5, [None]*5
+    sorted_scores = sorted(scores, key=lambda x: x["score"], reverse=True)
+    top1 = sorted_scores[0]
+    top5 = sorted_scores[:5] if len(sorted_scores) >= 5 else (sorted_scores + [ {"label":None,"score":None} ]*(5-len(sorted_scores)))
+    top5_labels = [e["label"] for e in top5]
+    top5_scores = [float(e["score"]) if e["score"] is not None else None for e in top5]
+    return str(top1["label"]), float(top1["score"]), top5_labels, top5_scores
+
 def safe_emotions_for_batch(batch_texts):
-    """Return lists: top_label, conf, coarse_sentiment. Skips rows that error."""
-    out_labels, out_confs, out_sent = [], [], []
+    """
+    Return lists per item:
+      top1_label, top1_conf, coarse_sentiment_from_top1,
+      top5_label_1..5, top5_conf_1..5
+    Any error on an item yields Nones for that item.
+    """
+    out_top1_lbl, out_top1_conf, out_sent = [], [], []
+    out_top5_lbls, out_top5_confs = [], []
+
     try:
         outputs = emo_clf(batch_texts)  # list[list[dict]]
         for scores in outputs:
             try:
-                top = max(scores, key=lambda x: x["score"])
-                lbl = str(top["label"])
-                conf = float(top["score"])
-                out_labels.append(lbl)
-                out_confs.append(conf)
-                out_sent.append(emo_to_sentiment(lbl))
+                t1_lbl, t1_conf, t5_lbls, t5_confs = top5_from_scores(scores)
+                out_top1_lbl.append(t1_lbl)
+                out_top1_conf.append(t1_conf)
+                out_sent.append(emo_to_sentiment(t1_lbl) if t1_lbl is not None else None)
+                out_top5_lbls.append(t5_lbls)
+                out_top5_confs.append(t5_confs)
             except Exception:
-                out_labels.append(None); out_confs.append(None); out_sent.append(None)
+                out_top1_lbl.append(None); out_top1_conf.append(None); out_sent.append(None)
+                out_top5_lbls.append([None]*5); out_top5_confs.append([None]*5)
     except Exception:
         # fallback: per-row
         for t in batch_texts:
             try:
                 scores = emo_clf([t])[0]
-                top = max(scores, key=lambda x: x["score"])
-                lbl = str(top["label"])
-                conf = float(top["score"])
-                out_labels.append(lbl)
-                out_confs.append(conf)
-                out_sent.append(emo_to_sentiment(lbl))
+                t1_lbl, t1_conf, t5_lbls, t5_confs = top5_from_scores(scores)
+                out_top1_lbl.append(t1_lbl)
+                out_top1_conf.append(t1_conf)
+                out_sent.append(emo_to_sentiment(t1_lbl) if t1_lbl is not None else None)
+                out_top5_lbls.append(t5_lbls)
+                out_top5_confs.append(t5_confs)
             except Exception:
-                out_labels.append(None); out_confs.append(None); out_sent.append(None)
-    return out_labels, out_confs, out_sent
+                out_top1_lbl.append(None); out_top1_conf.append(None); out_sent.append(None)
+                out_top5_lbls.append([None]*5); out_top5_confs.append([None]*5)
+
+    return out_top1_lbl, out_top1_conf, out_sent, out_top5_lbls, out_top5_confs
 
 def safe_sentiment_for_batch(batch_texts):
     """Return lists: label_str, confidence. Skips rows that error."""
@@ -156,10 +177,14 @@ def process_split(in_path: str, out_path: str):
     print("🧠 Running GoEmotions (batched)...")
     texts = df["text"].astype(str).fillna("").tolist()
     n = len(texts)
-    top_emotion, emo_conf, emo_sent = [], [], []
+
+    (top1_lbls, top1_confs, emo_sent_coarse,
+     top5_lbl_lists, top5_conf_lists) = [], [], [], [], []
+
     for i in tqdm(range(0, n, BATCH_SIZE), desc="  GoEmotions batches"):
-        tl, tc, ts = safe_emotions_for_batch(texts[i:i+BATCH_SIZE])
-        top_emotion.extend(tl); emo_conf.extend(tc); emo_sent.extend(ts)
+        t1l, t1c, t_sent, t5l, t5c = safe_emotions_for_batch(texts[i:i+BATCH_SIZE])
+        top1_lbls.extend(t1l); top1_confs.extend(t1c); emo_sent_coarse.extend(t_sent)
+        top5_lbl_lists.extend(t5l); top5_conf_lists.extend(t5c)
 
     print("💬 Running Reddit sentiment (batched)...")
     red_sent, red_conf = [], []
@@ -168,11 +193,17 @@ def process_split(in_path: str, out_path: str):
         red_sent.extend(rl); red_conf.extend(rc)
 
     print("🧷 Attaching columns...")
-    df["top_emotion"] = top_emotion
-    df["emotion_conf"] = emo_conf
-    df["emotion_sentiment"] = emo_sent
+    df["top_emotion"] = top1_lbls
+    df["emotion_conf"] = top1_confs
+    df["emotion_sentiment"] = emo_sent_coarse
     df["reddit_sentiment"] = red_sent
     df["reddit_conf"] = red_conf
+
+    # Add Top-5 emotion columns
+    # Expand lists to columns: emo1_label..emo5_label, emo1_conf..emo5_conf
+    for k in range(5):
+        df[f"emo{k+1}_label"] = [lst[k] if lst and len(lst) > k else None for lst in top5_lbl_lists]
+        df[f"emo{k+1}_conf"]  = [lst[k] if lst and len(lst) > k else None for lst in top5_conf_lists]
 
     print(f"🔎 Filtering by confidence >= {CONF_MIN} and valid predictions...")
     good = (
