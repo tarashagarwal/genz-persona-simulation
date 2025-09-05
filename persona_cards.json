@@ -1,0 +1,522 @@
+{
+  "source_csv": "/home/tarash/Personal/genz-persona-simulation/clusters_personas_genz_only.csv",
+  "n_rows": 96639,
+  "n_personas": 4,
+  "silhouette": 0.18065077133961818,
+  "feature_importance": {
+    "mutual_information_top30": [
+      [
+        "top_emotion_neutral",
+        0.5428501714127949
+      ],
+      [
+        "emotion_neutral",
+        0.5320947797263818
+      ],
+      [
+        "emotion_approval",
+        0.2566405583966427
+      ],
+      [
+        "sentiment_score",
+        0.24942562047139494
+      ],
+      [
+        "emotion_annoyance",
+        0.22132267656667826
+      ],
+      [
+        "emotion_realization",
+        0.21773726724569875
+      ],
+      [
+        "text_svd_4",
+        0.21274953438184463
+      ],
+      [
+        "text_svd_1",
+        0.19993548266429317
+      ],
+      [
+        "text_svd_9",
+        0.1900586474149244
+      ],
+      [
+        "text_svd_2",
+        0.1822014123268676
+      ],
+      [
+        "emotion_joy",
+        0.17988654946481253
+      ],
+      [
+        "text_svd_0",
+        0.17860431315548064
+      ],
+      [
+        "emotion_admiration",
+        0.17460422591334668
+      ],
+      [
+        "emotion_love",
+        0.17382299871345408
+      ],
+      [
+        "emotion_amusement",
+        0.1660951189182951
+      ],
+      [
+        "text_svd_8",
+        0.16553017787984303
+      ],
+      [
+        "text_svd_7",
+        0.15994895882878724
+      ],
+      [
+        "text_svd_3",
+        0.15531168005459794
+      ],
+      [
+        "text_svd_18",
+        0.15141827855484324
+      ],
+      [
+        "top_emotion_love",
+        0.15098223793711507
+      ],
+      [
+        "text_svd_13",
+        0.14990047030248
+      ],
+      [
+        "top_emotion_amusement",
+        0.14815528298590142
+      ],
+      [
+        "text_svd_17",
+        0.1473581273308937
+      ],
+      [
+        "text_svd_5",
+        0.1399305130106956
+      ],
+      [
+        "text_svd_11",
+        0.13483987419287335
+      ],
+      [
+        "text_svd_10",
+        0.13311187786613887
+      ],
+      [
+        "text_svd_19",
+        0.13306506096149628
+      ],
+      [
+        "text_svd_36",
+        0.1312698981824183
+      ],
+      [
+        "text_svd_39",
+        0.13059938942389038
+      ],
+      [
+        "text_svd_34",
+        0.13039000637995435
+      ]
+    ],
+    "permutation_importance_top30": [
+      [
+        "top_emotion_neutral",
+        0.007553886112232108
+      ],
+      [
+        "top_emotion_love",
+        0.00043590061983261874
+      ],
+      [
+        "emotion_neutral",
+        0.0002793903082606297
+      ],
+      [
+        "emotion_love",
+        2.8456420285816186e-05
+      ],
+      [
+        "sentiment_score",
+        1.034778919484225e-05
+      ],
+      [
+        "emotion_nervousness",
+        1.034778919484225e-05
+      ],
+      [
+        "text_svd_0",
+        0.0
+      ],
+      [
+        "text_svd_1",
+        0.0
+      ],
+      [
+        "text_svd_2",
+        0.0
+      ],
+      [
+        "text_svd_3",
+        0.0
+      ],
+      [
+        "text_svd_4",
+        0.0
+      ],
+      [
+        "text_svd_5",
+        0.0
+      ],
+      [
+        "text_svd_6",
+        0.0
+      ],
+      [
+        "text_svd_7",
+        0.0
+      ],
+      [
+        "text_svd_8",
+        0.0
+      ],
+      [
+        "text_svd_9",
+        0.0
+      ],
+      [
+        "text_svd_10",
+        0.0
+      ],
+      [
+        "text_svd_11",
+        0.0
+      ],
+      [
+        "text_svd_12",
+        0.0
+      ],
+      [
+        "text_svd_13",
+        0.0
+      ],
+      [
+        "text_svd_14",
+        0.0
+      ],
+      [
+        "text_svd_15",
+        0.0
+      ],
+      [
+        "text_svd_16",
+        0.0
+      ],
+      [
+        "text_svd_17",
+        0.0
+      ],
+      [
+        "text_svd_18",
+        0.0
+      ],
+      [
+        "text_svd_19",
+        0.0
+      ],
+      [
+        "text_svd_20",
+        0.0
+      ],
+      [
+        "text_svd_21",
+        0.0
+      ],
+      [
+        "text_svd_22",
+        0.0
+      ],
+      [
+        "text_svd_23",
+        0.0
+      ]
+    ]
+  },
+  "personas": {
+    "0": {
+      "size": 3395,
+      "share": 0.03513074431647679,
+      "top_words": [
+        "love",
+        "you",
+        "love you",
+        "and",
+        "my",
+        "to",
+        "the",
+        "me",
+        "it",
+        "that",
+        "so",
+        "in"
+      ],
+      "avg_sentiment_score": 0.9802650957290132,
+      "top_emotions": [
+        {
+          "emotion": "love",
+          "avg_conf": 0.9335220189756867
+        },
+        {
+          "emotion": "admiration",
+          "avg_conf": 0.052950434201014286
+        },
+        {
+          "emotion": "approval",
+          "avg_conf": 0.03462707724213728
+        },
+        {
+          "emotion": "desire",
+          "avg_conf": 0.026145326014229572
+        },
+        {
+          "emotion": "joy",
+          "avg_conf": 0.025415033832280186
+        },
+        {
+          "emotion": "optimism",
+          "avg_conf": 0.023514464155486907
+        },
+        {
+          "emotion": "curiosity",
+          "avg_conf": 0.013059641235948306
+        },
+        {
+          "emotion": "neutral",
+          "avg_conf": 0.012936734951571688
+        }
+      ],
+      "horoscope_top": [
+        "Leo",
+        "Virgo",
+        "Taurus",
+        "Aries",
+        "Gemini"
+      ],
+      "job_top": [
+        "indUnk",
+        "Student",
+        "Arts",
+        "Technology",
+        "Education"
+      ]
+    },
+    "1": {
+      "size": 17429,
+      "share": 0.18035161787684062,
+      "top_words": [
+        "the",
+        "to",
+        "and",
+        "it",
+        "you",
+        "my",
+        "that",
+        "of",
+        "for",
+        "was",
+        "is",
+        "so"
+      ],
+      "avg_sentiment_score": 0.8615525847725056,
+      "top_emotions": [
+        {
+          "emotion": "amusement",
+          "avg_conf": 0.4065595447425432
+        },
+        {
+          "emotion": "gratitude",
+          "avg_conf": 0.3103244399025464
+        },
+        {
+          "emotion": "admiration",
+          "avg_conf": 0.14484266415863037
+        },
+        {
+          "emotion": "optimism",
+          "avg_conf": 0.08359788368719555
+        },
+        {
+          "emotion": "joy",
+          "avg_conf": 0.06882597516225704
+        },
+        {
+          "emotion": "confusion",
+          "avg_conf": 0.03447982941433711
+        },
+        {
+          "emotion": "approval",
+          "avg_conf": 0.02567630811902265
+        },
+        {
+          "emotion": "neutral",
+          "avg_conf": 0.02294629333239206
+        }
+      ],
+      "horoscope_top": [
+        "Aries",
+        "Libra",
+        "Taurus",
+        "Scorpio",
+        "Virgo"
+      ],
+      "job_top": [
+        "indUnk",
+        "Student",
+        "Technology",
+        "Arts",
+        "Education"
+      ]
+    },
+    "2": {
+      "size": 58,
+      "share": 0.0006001717733006343,
+      "top_words": [
+        "scared",
+        "afraid",
+        "scary",
+        "of",
+        "the",
+        "my",
+        "to",
+        "is",
+        "and",
+        "am",
+        "me",
+        "it"
+      ],
+      "avg_sentiment_score": -0.5172413793103449,
+      "top_emotions": [
+        {
+          "emotion": "fear",
+          "avg_conf": 0.8979603917948131
+        },
+        {
+          "emotion": "nervousness",
+          "avg_conf": 0.10704384063338408
+        },
+        {
+          "emotion": "neutral",
+          "avg_conf": 0.04069130456653131
+        },
+        {
+          "emotion": "confusion",
+          "avg_conf": 0.024608448308346593
+        },
+        {
+          "emotion": "sadness",
+          "avg_conf": 0.01508778519928453
+        },
+        {
+          "emotion": "curiosity",
+          "avg_conf": 0.0027645628513960985
+        },
+        {
+          "emotion": "disgust",
+          "avg_conf": 0.0024237595177416084
+        },
+        {
+          "emotion": "realization",
+          "avg_conf": 0.002336917958896733
+        }
+      ],
+      "horoscope_top": [
+        "Aries",
+        "Aquarius",
+        "Cancer",
+        "Taurus",
+        "Leo"
+      ],
+      "job_top": [
+        "Student",
+        "indUnk",
+        "Education",
+        "Technology",
+        "Law"
+      ]
+    },
+    "3": {
+      "size": 75757,
+      "share": 0.783917466033382,
+      "top_words": [
+        "urllink",
+        "nbsp",
+        "the",
+        "nbsp urllink",
+        "and",
+        "of",
+        "to",
+        "in",
+        "is",
+        "on",
+        "for",
+        "more"
+      ],
+      "avg_sentiment_score": 0.12033211452407039,
+      "top_emotions": [
+        {
+          "emotion": "neutral",
+          "avg_conf": 0.9535128578972659
+        },
+        {
+          "emotion": "approval",
+          "avg_conf": 0.02017223415077541
+        },
+        {
+          "emotion": "realization",
+          "avg_conf": 0.007857467057944685
+        },
+        {
+          "emotion": "annoyance",
+          "avg_conf": 0.006708180696211848
+        },
+        {
+          "emotion": "disapproval",
+          "avg_conf": 0.0012275700158341162
+        },
+        {
+          "emotion": "excitement",
+          "avg_conf": 0.0009100561252556344
+        },
+        {
+          "emotion": "confusion",
+          "avg_conf": 0.0008347681828122425
+        },
+        {
+          "emotion": "admiration",
+          "avg_conf": 0.0005633984642759492
+        }
+      ],
+      "horoscope_top": [
+        "Aries",
+        "Virgo",
+        "Leo",
+        "Gemini",
+        "Taurus"
+      ],
+      "job_top": [
+        "indUnk",
+        "Student",
+        "Technology",
+        "Education",
+        "Arts"
+      ]
+    }
+  }
+}

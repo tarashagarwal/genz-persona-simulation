@@ -213,12 +213,12 @@ def main():
 
     # Save main CSV
     desired_cols = [
-        "text", "top_emotion",
+        "text", "top_emotion","reddit_sentiment",
         "emo1_label", "emo1_conf",
         "emo2_label", "emo2_conf",
         "emo3_label", "emo3_conf",
         "emo4_label", "emo4_conf",
-        "horoscope", "job",
+        "horoscope", "job","masking",
         "cluster", "x2d", "y2d", "cluster_color_name",
     ]
     for c in desired_cols:
