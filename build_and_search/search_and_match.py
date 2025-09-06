@@ -4,6 +4,7 @@
 # - Uses constants.py for all config.
 # - Verbose console logs: similarity, what was sent to OpenAI, etc.
 # - No matched-text leakage; only attributes are sent when similarity >= threshold.
+# - Returns top_emotion, emotion_scores (>= threshold), and masking (or nil/zero if low sim).
 # ---------------------------------------------------------
 
 from __future__ import annotations
@@ -144,6 +145,16 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
     )
     log("[prompt] messages to OpenAI:\n" + pformat(messages, width=100, compact=False))
 
+    # Prepare emotion outputs (+ masking) depending on similarity
+    if sim >= C.SIM_THRESHOLD:
+        top_emotion_out = best_row.get("top_emotion")
+        emotion_scores_out = high_conf                       # list of {"label","confidence"}
+        masking_out = int(best_row.get("masking", 0))
+    else:
+        top_emotion_out = None
+        emotion_scores_out = []                              # nil/zero case
+        masking_out = 0
+
     # API key handling
     api_key = openai_key or C.get_openai_key()
     if not api_key:
@@ -153,6 +164,9 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
             "similarity": sim,
             "matched_row_id": best_row.get(C.ID_COL),
             "used_attributes": sim >= C.SIM_THRESHOLD,
+            "top_emotion": top_emotion_out,
+            "emotion_scores": emotion_scores_out,
+            "masking": masking_out,
             "attributes_sent": attrs_no_text if sim >= C.SIM_THRESHOLD else None,
             "high_conf_emotions_sent": high_conf if sim >= C.SIM_THRESHOLD else None,
             "reaction": None,
@@ -176,6 +190,9 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
         "similarity": sim,
         "matched_row_id": best_row.get(C.ID_COL),
         "used_attributes": sim >= C.SIM_THRESHOLD,
+        "top_emotion": top_emotion_out,
+        "emotion_scores": emotion_scores_out,
+        "masking": masking_out,
         "attributes_sent": attrs_no_text if sim >= C.SIM_THRESHOLD else None,
         "high_conf_emotions_sent": high_conf if sim >= C.SIM_THRESHOLD else None,
         "reaction": reaction,
