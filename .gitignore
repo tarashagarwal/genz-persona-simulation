@@ -2,7 +2,7 @@ model_code/data/
 model_code/.env
 model_code/build_and_search/indexes
 genz_persona_simulation/indexes/
-__pycache__/
+genz_persona_simulation/__pycache__/
 
 # Logs
 logs

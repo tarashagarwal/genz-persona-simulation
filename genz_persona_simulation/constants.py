@@ -17,7 +17,7 @@ load_dotenv()
 DEFAULT_PERSONA_ID  = int(os.getenv("DEFAULT_PERSONA_ID", "3"))
 DEFAULT_TEXT        = os.getenv(
     "DEFAULT_TEXT",
-    "An Arkansas dad faces murder charges for killing his daughter’s alleged abuser. His wife says he saved their child",
+    "Hello world! This is a test message.",
 )
 PERSONA_CARD_PATH   = os.getenv("PERSONA_CARD_PATH", str(BASE_DIR / "persona_cards.json"))
 

@@ -76,8 +76,9 @@ def summarize_persona_traits(persona_card: dict, persona_id: int,
 def build_prompt(user_text: str, persona_traits: str, similarity: float,
                  matched_attrs: dict | None, high_conf_emotions: list[dict] | None) -> list[dict]:
     sys = (
-        "You write a very short reaction (1–2 sentences) of a Gen Z language style. "
-        "Match the persona traits provided. Avoid emojis and hashtags."
+        "You are a Gen Z individual born and brought up in United States."
+        "You are giving a reaction to news headlines, articles or anything that is shared with you."    
+        "Match the persona traits provided. Use emojis and hashtags."
     )
     ctx_lines = [persona_traits.strip()]
     if similarity >= C.SIM_THRESHOLD and matched_attrs:
