@@ -4,7 +4,7 @@
 # - Uses constants.py for all config.
 # - Verbose console logs: similarity, what was sent to OpenAI, etc.
 # - No matched-text leakage; only attributes are sent when similarity >= threshold.
-# - Returns top_emotion, emotion_scores (>= threshold), and masking (or nil/zero if low sim).
+# - Returns top_emotion, emotion_scores (>= threshold), masking (bool), reddit_sentiment, score.
 # ---------------------------------------------------------
 
 from __future__ import annotations
@@ -73,13 +73,88 @@ def summarize_persona_traits(persona_card: dict, persona_id: int,
         f"- Overall tone tendency: {tone}\n"
     )
 
-def build_prompt(user_text: str, persona_traits: str, similarity: float,
-                 matched_attrs: dict | None, high_conf_emotions: list[dict] | None) -> list[dict]:
-    sys = (
-        "You are a Gen Z individual born and brought up in United States."
-        "You are giving a reaction to news headlines, articles or anything that is shared with you."    
-        "Match the persona traits provided. Use emojis and hashtags."
+# 🔹 NEW: helpers to extract reddit sentiment + numeric score safely
+def _first_numeric(d: dict, keys: list[str]):
+    """Return first present numeric value from dict for any of the given keys."""
+    for k in keys:
+        if k in d and pd.notna(d[k]):
+            try:
+                return float(d[k])
+            except (TypeError, ValueError):
+                continue
+    return None
+
+def extract_reddit_sentiment_and_score(row_dict: dict):
+    """
+    Tries common column names. Adjust candidates to match your meta schema.
+    Returns (label: Optional[str], score: Optional[float]).
+    """
+    label = row_dict.get("reddit_sentiment") or row_dict.get("sentiment")
+    score = _first_numeric(
+        row_dict,
+        [
+            "reddit_sentiment_score",  # preferred if present
+            "reddit_score",
+            "sentiment_score",
+            "reddit_compound",
+            "compound",
+            "sentiment_compound",
+        ],
     )
+    return label, score
+
+def build_prompt(
+    user_text: str,
+    persona_traits: str,
+    similarity: float,
+    matched_attrs: dict | None,
+    high_conf_emotions: list[dict] | None,
+    *,
+    masking: bool | None = None,
+    sentiment_label: str | None = None,
+    sentiment_score: float | None = None,
+) -> list[dict]:
+    """
+    Build OpenAI messages. If similarity is high and we have
+    emotions/sentiment/masking, include explicit guidance.
+    """
+    # --- System rules ---
+    sys_lines = [
+        # Who you are + style guardrails
+        "You are a Gen Z individual in the United States.",
+        "Write a very short reaction (1–2 sentences).",
+        "Match the persona traits provided.",
+        "Use emojis and hashtags sparingly (1–2 emojis, at most one hashtag).",
+    ]
+
+    # Emotions to convey
+    if high_conf_emotions:
+        # keep label order by confidence (caller already provides high-confidence only)
+        emo_labels = ", ".join([str(e.get("label")) for e in high_conf_emotions if e.get("label")])
+        if emo_labels:
+            sys_lines.append(f"Target emotions to convey: {emo_labels} (in priority order).")
+
+    # Overall sentiment
+    if sentiment_label:
+        if isinstance(sentiment_score, (int, float)):
+            sys_lines.append(f"Overall sentiment to reflect: {sentiment_label} (score {sentiment_score:.2f}).")
+        else:
+            sys_lines.append(f"Overall sentiment to reflect: {sentiment_label}.")
+
+    # Masking behavior
+    if masking is True:
+        sys_lines.append(
+            "Masking is TRUE: keep feelings partially hidden—use hedging, understatement, and indirect phrasing; "
+            "avoid strong exclamations; prefer neutral/soft emojis (or none)."
+        )
+    elif masking is False:
+        sys_lines.append(
+            "Masking is FALSE: be clear and expressive; direct language is fine; enthusiasm is okay when fitting."
+        )
+
+    system_content = "\n".join(sys_lines)
+
+    # --- Context + user message ---
     ctx_lines = [persona_traits.strip()]
     if similarity >= C.SIM_THRESHOLD and matched_attrs:
         ctx_lines.append(f"Nearest-sample similarity: {similarity:.2f}")
@@ -87,15 +162,18 @@ def build_prompt(user_text: str, persona_traits: str, similarity: float,
         if high_conf_emotions:
             ctx_lines.append("Nearest-sample high-confidence emotions: " +
                              json.dumps(high_conf_emotions, ensure_ascii=False))
-    user = (
+
+    user_content = (
         "Message: " + user_text.strip() + "\n\n"
-        "Using the persona traits (and, if provided, the nearest-sample attributes), "
+        "Using the persona traits and guidance above (and, if provided, the nearest-sample attributes), "
         "write a brief reaction in that persona's style."
     )
+
     return [
-        {"role": "system", "content": sys},
-        {"role": "user", "content": "\n".join(ctx_lines) + "\n\n" + user},
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": "\n".join(ctx_lines) + "\n\n" + user_content},
     ]
+
 
 def react(user_text: str, persona_id: int, persona_card_path: str | Path,
           openai_key: str | None, verbose: bool):
@@ -128,6 +206,8 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
 
     attrs_no_text = drop_text_and_lowconf_emotions(best_row, threshold=C.EMO_CONF_THRESHOLD)
     high_conf = extract_high_conf_emotions(best_row, threshold=C.EMO_CONF_THRESHOLD)
+    reddit_label, reddit_score = extract_reddit_sentiment_and_score(best_row)
+
     log(f"[attrs] using_attributes={sim >= C.SIM_THRESHOLD}")
     if sim >= C.SIM_THRESHOLD:
         sent_keys = list(attrs_no_text.keys())
@@ -146,15 +226,19 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
     )
     log("[prompt] messages to OpenAI:\n" + pformat(messages, width=100, compact=False))
 
-    # Prepare emotion outputs (+ masking) depending on similarity
+    # Prepare outputs depending on similarity (avoid attribute leakage when low)
     if sim >= C.SIM_THRESHOLD:
         top_emotion_out = best_row.get("top_emotion")
         emotion_scores_out = high_conf                       # list of {"label","confidence"}
-        masking_out = int(best_row.get("masking", 0))
+        masking_out = bool(int(best_row.get("masking", 0)))  # 🔹 boolean
+        reddit_sentiment_out = reddit_label                  # 🔹 string
+        reddit_score_out = reddit_score                      # 🔹 numeric (or None)
     else:
         top_emotion_out = None
-        emotion_scores_out = []                              # nil/zero case
-        masking_out = 0
+        emotion_scores_out = []
+        masking_out = False
+        reddit_sentiment_out = None
+        reddit_score_out = None
 
     # API key handling
     api_key = openai_key or C.get_openai_key()
@@ -167,7 +251,9 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
             "used_attributes": sim >= C.SIM_THRESHOLD,
             "top_emotion": top_emotion_out,
             "emotion_scores": emotion_scores_out,
-            "masking": masking_out,
+            "masking": masking_out,                          # bool
+            "reddit_sentiment": reddit_sentiment_out,        # new
+            "score": reddit_score_out,                       # new
             "attributes_sent": attrs_no_text if sim >= C.SIM_THRESHOLD else None,
             "high_conf_emotions_sent": high_conf if sim >= C.SIM_THRESHOLD else None,
             "reaction": None,
@@ -193,7 +279,9 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
         "used_attributes": sim >= C.SIM_THRESHOLD,
         "top_emotion": top_emotion_out,
         "emotion_scores": emotion_scores_out,
-        "masking": masking_out,
+        "masking": masking_out,                              # bool
+        "reddit_sentiment": reddit_sentiment_out,            # new
+        "score": reddit_score_out,                           # new
         "attributes_sent": attrs_no_text if sim >= C.SIM_THRESHOLD else None,
         "high_conf_emotions_sent": high_conf if sim >= C.SIM_THRESHOLD else None,
         "reaction": reaction,

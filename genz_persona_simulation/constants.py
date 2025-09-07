@@ -26,8 +26,8 @@ EMB_MODEL           = os.getenv("EMB_MODEL", "sentence-transformers/all-MiniLM-L
 TEXT_COL            = os.getenv("TEXT_COL", "text")
 ID_COL              = os.getenv("ID_COL", "id")
 
-SIM_THRESHOLD       = float(os.getenv("SIM_THRESHOLD", "0.40"))   # 0..1
-EMO_CONF_THRESHOLD  = float(os.getenv("EMO_CONF_THRESHOLD", "0.85"))
+SIM_THRESHOLD       = float(os.getenv("SIM_THRESHOLD", "0.25"))   # 0..1
+EMO_CONF_THRESHOLD  = float(os.getenv("EMO_CONF_THRESHOLD", "0.60"))
 
 GEN_MODEL           = os.getenv("GEN_MODEL", "gpt-4o-mini")
 
