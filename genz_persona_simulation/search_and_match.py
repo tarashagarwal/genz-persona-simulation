@@ -2,9 +2,9 @@
 # ---------------------------------------------------------
 # Persona-aware FAISS search + optional OpenAI generation.
 # - Uses constants.py for all config.
-# - Verbose console logs: similarity, what was sent to OpenAI, etc.
-# - No matched-text leakage; only attributes are sent when similarity >= threshold.
-# - Returns top_emotion, emotion_scores (>= threshold), masking (bool), reddit_sentiment, score.
+# - Avoids matched-text leakage; only attributes sent when similarity >= threshold.
+# - Returns emotions, masking (bool), reddit_sentiment, score, and TWO LLM texts:
+#   public_reaction (sentiment+masking-aware) and private_reaction (emotions-only).
 # ---------------------------------------------------------
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def extract_high_conf_emotions(row_dict: dict, threshold: float = C.EMO_CONF_THR
 def drop_text_and_lowconf_emotions(row_dict: dict, threshold: float = C.EMO_CONF_THRESHOLD):
     copy = dict(row_dict)
     copy.pop(C.TEXT_COL, None)  # never leak matched text
-    for i in range(1, 4+1):
+    for i in range(1, 4 + 1):
         lk, ck = f"emo{i}_label", f"emo{i}_conf"
         lab, conf = copy.get(lk), copy.get(ck)
         keep = isinstance(lab, str) and pd.notna(conf) and float(conf) >= threshold
@@ -73,9 +73,8 @@ def summarize_persona_traits(persona_card: dict, persona_id: int,
         f"- Overall tone tendency: {tone}\n"
     )
 
-# 🔹 NEW: helpers to extract reddit sentiment + numeric score safely
+# 🔹 sentiment helpers
 def _first_numeric(d: dict, keys: list[str]):
-    """Return first present numeric value from dict for any of the given keys."""
     for k in keys:
         if k in d and pd.notna(d[k]):
             try:
@@ -85,24 +84,14 @@ def _first_numeric(d: dict, keys: list[str]):
     return None
 
 def extract_reddit_sentiment_and_score(row_dict: dict):
-    """
-    Tries common column names. Adjust candidates to match your meta schema.
-    Returns (label: Optional[str], score: Optional[float]).
-    """
     label = row_dict.get("reddit_sentiment") or row_dict.get("sentiment")
     score = _first_numeric(
         row_dict,
-        [
-            "reddit_sentiment_score",  # preferred if present
-            "reddit_score",
-            "sentiment_score",
-            "reddit_compound",
-            "compound",
-            "sentiment_compound",
-        ],
+        ["reddit_sentiment_score", "reddit_score", "sentiment_score", "reddit_compound", "compound", "sentiment_compound"],
     )
     return label, score
 
+# ---------- Prompt builder (outputs JSON with two reactions) ----------
 def build_prompt(
     user_text: str,
     persona_traits: str,
@@ -115,58 +104,53 @@ def build_prompt(
     sentiment_score: float | None = None,
 ) -> list[dict]:
     """
-    Build OpenAI messages. If similarity is high and we have
-    emotions/sentiment/masking, include explicit guidance.
+    Builds messages so the model returns a JSON object:
+      { "public_reaction": "...", "private_reaction": "..." }
+    public_reaction follows persona + sentiment + masking (if high similarity);
+    private_reaction ignores sentiment/masking and just expresses emotions.
     """
-    # --- System rules ---
     sys_lines = [
-        # Who you are + style guardrails
         "You are a Gen Z individual in the United States.",
-        "Write a very short reaction (1–2 sentences).",
-        "Match the persona traits provided.",
-        "Use emojis and hashtags sparingly (1–2 emojis, at most one hashtag).",
+        "Return ONLY a valid JSON object with exactly two string fields: public_reaction and private_reaction.",
+        "Both fields should be 1–2 sentences each.",
+        "Use emojis and hashtags sparingly in public_reaction (0–2 emojis, at most one hashtag).",
+        "Do not add extra keys, comments, or backticks.",
     ]
 
-    # Emotions to convey
+    # Emotions to convey (order already reflects confidence)
     if high_conf_emotions:
-        # keep label order by confidence (caller already provides high-confidence only)
         emo_labels = ", ".join([str(e.get("label")) for e in high_conf_emotions if e.get("label")])
         if emo_labels:
             sys_lines.append(f"Target emotions to convey: {emo_labels} (in priority order).")
 
-    # Overall sentiment
+    # Overall sentiment (public only)
     if sentiment_label:
         if isinstance(sentiment_score, (int, float)):
-            sys_lines.append(f"Overall sentiment to reflect: {sentiment_label} (score {sentiment_score:.2f}).")
+            sys_lines.append(f"Overall sentiment to reflect in public_reaction: {sentiment_label} (score {sentiment_score:.2f}).")
         else:
-            sys_lines.append(f"Overall sentiment to reflect: {sentiment_label}.")
+            sys_lines.append(f"Overall sentiment to reflect in public_reaction: {sentiment_label}.")
 
-    # Masking behavior
+    # Masking behavior (public only)
     if masking is True:
-        sys_lines.append(
-            "Masking is TRUE: keep feelings partially hidden—use hedging, understatement, and indirect phrasing; "
-            "avoid strong exclamations; prefer neutral/soft emojis (or none)."
-        )
+        sys_lines.append("Masking is TRUE for public_reaction: hedge and understate; avoid strong exclamations; prefer neutral/soft emojis (or none).")
     elif masking is False:
-        sys_lines.append(
-            "Masking is FALSE: be clear and expressive; direct language is fine; enthusiasm is okay when fitting."
-        )
+        sys_lines.append("Masking is FALSE for public_reaction: be clear and appropriately expressive; enthusiasm is okay when fitting.")
 
     system_content = "\n".join(sys_lines)
 
-    # --- Context + user message ---
+    # Context + user message
     ctx_lines = [persona_traits.strip()]
     if similarity >= C.SIM_THRESHOLD and matched_attrs:
         ctx_lines.append(f"Nearest-sample similarity: {similarity:.2f}")
         ctx_lines.append("Nearest-sample attributes (no text): " + json.dumps(matched_attrs, ensure_ascii=False))
         if high_conf_emotions:
-            ctx_lines.append("Nearest-sample high-confidence emotions: " +
-                             json.dumps(high_conf_emotions, ensure_ascii=False))
+            ctx_lines.append("Nearest-sample high-confidence emotions: " + json.dumps(high_conf_emotions, ensure_ascii=False))
 
     user_content = (
         "Message: " + user_text.strip() + "\n\n"
-        "Using the persona traits and guidance above (and, if provided, the nearest-sample attributes), "
-        "write a brief reaction in that persona's style."
+        "- Produce public_reaction that follows persona traits, target emotions, overall sentiment (if given), and masking rules.\n"
+        "- Produce private_reaction that ignores sentiment and masking and expresses only the emotions (raw/unguarded), still in persona voice.\n"
+        "- Output JSON only."
     )
 
     return [
@@ -174,7 +158,7 @@ def build_prompt(
         {"role": "user", "content": "\n".join(ctx_lines) + "\n\n" + user_content},
     ]
 
-
+# ---------- Main react ----------
 def react(user_text: str, persona_id: int, persona_card_path: str | Path,
           openai_key: str | None, verbose: bool):
     def log(msg):
@@ -217,22 +201,30 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
     traits = summarize_persona_traits(persona_card, persona_id)
     log("[persona] traits:\n" + traits)
 
+    # Only include sensitive guidance when similarity is high
+    masking_for_prompt = bool(int(best_row.get("masking", 0))) if sim >= C.SIM_THRESHOLD else None
+    sentiment_label_for_prompt = reddit_label if sim >= C.SIM_THRESHOLD else None
+    sentiment_score_for_prompt = reddit_score if sim >= C.SIM_THRESHOLD else None
+
     messages = build_prompt(
         user_text=user_text,
         persona_traits=traits,
         similarity=sim,
         matched_attrs=attrs_no_text if sim >= C.SIM_THRESHOLD else None,
         high_conf_emotions=high_conf if sim >= C.SIM_THRESHOLD else None,
+        masking=masking_for_prompt,
+        sentiment_label=sentiment_label_for_prompt,
+        sentiment_score=sentiment_score_for_prompt,
     )
     log("[prompt] messages to OpenAI:\n" + pformat(messages, width=100, compact=False))
 
-    # Prepare outputs depending on similarity (avoid attribute leakage when low)
+    # Prepare non-LLM outputs (avoid attribute leakage when low)
     if sim >= C.SIM_THRESHOLD:
         top_emotion_out = best_row.get("top_emotion")
-        emotion_scores_out = high_conf                       # list of {"label","confidence"}
-        masking_out = bool(int(best_row.get("masking", 0)))  # 🔹 boolean
-        reddit_sentiment_out = reddit_label                  # 🔹 string
-        reddit_score_out = reddit_score                      # 🔹 numeric (or None)
+        emotion_scores_out = high_conf
+        masking_out = bool(int(best_row.get("masking", 0)))
+        reddit_sentiment_out = reddit_label
+        reddit_score_out = reddit_score
     else:
         top_emotion_out = None
         emotion_scores_out = []
@@ -251,26 +243,42 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
             "used_attributes": sim >= C.SIM_THRESHOLD,
             "top_emotion": top_emotion_out,
             "emotion_scores": emotion_scores_out,
-            "masking": masking_out,                          # bool
-            "reddit_sentiment": reddit_sentiment_out,        # new
-            "score": reddit_score_out,                       # new
+            "masking": masking_out,
+            "reddit_sentiment": reddit_sentiment_out,
+            "score": reddit_score_out,
             "attributes_sent": attrs_no_text if sim >= C.SIM_THRESHOLD else None,
             "high_conf_emotions_sent": high_conf if sim >= C.SIM_THRESHOLD else None,
-            "reaction": None,
+            "reaction": None,                 # kept for backward-compat (maps to public_reaction)
+            "public_reaction": None,
+            "private_reaction": None,
             "error": "OPENAI_API_KEY missing. Set it in .env or pass --openai-key.",
             "prompt_preview": messages,
         }
 
-    log(f"[openai] model={C.GEN_MODEL}  key_present=True")
+    # temperature: slightly lower when masking True to keep things restrained
+    temperature = 0.35 if masking_for_prompt is True else 0.6
+
+    log(f"[openai] model={C.GEN_MODEL} key_present=True temperature={temperature}")
     client = OpenAI(api_key=api_key)
     resp = client.chat.completions.create(
         model=C.GEN_MODEL,
         messages=messages,
-        temperature=0.6,
-        max_tokens=80
+        temperature=temperature,
+        max_tokens=120,
+        response_format={"type": "json_object"},   # ask for strict JSON
     )
-    reaction = resp.choices[0].message.content.strip()
-    log("[openai] reaction:\n" + reaction)
+
+    raw = resp.choices[0].message.content.strip()
+    log("[openai] raw content:\n" + raw)
+
+    # Parse JSON safely
+    public_rx, private_rx = None, None
+    try:
+        obj = json.loads(raw)
+        public_rx = (obj.get("public_reaction") or "").strip() or None
+        private_rx = (obj.get("private_reaction") or "").strip() or None
+    except Exception as e:
+        log(f"[openai] JSON parse error: {e}")
 
     return {
         "persona_id": persona_id,
@@ -279,12 +287,16 @@ def react(user_text: str, persona_id: int, persona_card_path: str | Path,
         "used_attributes": sim >= C.SIM_THRESHOLD,
         "top_emotion": top_emotion_out,
         "emotion_scores": emotion_scores_out,
-        "masking": masking_out,                              # bool
-        "reddit_sentiment": reddit_sentiment_out,            # new
-        "score": reddit_score_out,                           # new
+        "masking": masking_out,                          # bool
+        "reddit_sentiment": reddit_sentiment_out,
+        "score": reddit_score_out,
         "attributes_sent": attrs_no_text if sim >= C.SIM_THRESHOLD else None,
         "high_conf_emotions_sent": high_conf if sim >= C.SIM_THRESHOLD else None,
-        "reaction": reaction,
+        # New dual outputs:
+        "public_reaction": public_rx,
+        "private_reaction": private_rx,
+        # For backward compatibility (UI already reads `reaction`)
+        "reaction": public_rx,
     }
 
 # ---------- CLI ----------
