@@ -76,7 +76,7 @@ def summarize_persona_traits(persona_card: dict, persona_id: int,
 def build_prompt(user_text: str, persona_traits: str, similarity: float,
                  matched_attrs: dict | None, high_conf_emotions: list[dict] | None) -> list[dict]:
     sys = (
-        "You write a very short reaction (1–2 sentences). "
+        "You write a very short reaction (1–2 sentences) of a Gen Z language style. "
         "Match the persona traits provided. Avoid emojis and hashtags."
     )
     ctx_lines = [persona_traits.strip()]

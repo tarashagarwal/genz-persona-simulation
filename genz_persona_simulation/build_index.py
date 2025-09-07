@@ -13,8 +13,6 @@ ID_COL = "id"
 PERSONA_COL = "persona_id"
 EMB_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-INDEX_DIR.mkdir(parents=True, exist_ok=True)
-
 def load_dataset():
     if Path(PARQUET_FILE).exists():
         print(f"[info] Loading {PARQUET_FILE}")
@@ -27,19 +25,25 @@ def load_dataset():
         return df
 
 def build_and_save_indexes(df):
-    model = SentenceTransformer(EMB_MODEL)
+    if not INDEX_DIR.exists():
 
-    for pid, sub in df.groupby(PERSONA_COL):
-        texts = sub[TEXT_COL].fillna("").tolist()
-        vecs = model.encode(texts, normalize_embeddings=True).astype("float32")
+        INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
-        index = faiss.IndexFlatIP(vecs.shape[1])  # cosine similarity
-        index.add(vecs)
+        model = SentenceTransformer(EMB_MODEL)
 
-        faiss.write_index(index, str(INDEX_DIR / f"persona_{pid}.faiss"))
-        sub.reset_index(drop=True).to_parquet(INDEX_DIR / f"persona_{pid}.meta.parquet")
+        for pid, sub in df.groupby(PERSONA_COL):
+            texts = sub[TEXT_COL].fillna("").tolist()
+            vecs = model.encode(texts, normalize_embeddings=True).astype("float32")
 
-        print(f"[info] Built index for persona {pid} with {len(sub)} rows")
+            index = faiss.IndexFlatIP(vecs.shape[1])  # cosine similarity
+            index.add(vecs)
+
+            faiss.write_index(index, str(INDEX_DIR / f"persona_{pid}.faiss"))
+            sub.reset_index(drop=True).to_parquet(INDEX_DIR / f"persona_{pid}.meta.parquet")
+
+            print(f"[info] Built index for persona {pid} with {len(sub)} rows")
+    else:
+        print(f"[info] Index directory {INDEX_DIR} already exists. Skipping index build.")
 
 if __name__ == "__main__":
     df = load_dataset()
