@@ -1,8 +1,8 @@
-model_code/data/
-model_code/.env
-model_code/build_and_search/indexes
-genz_persona_simulation/indexes/
-genz_persona_simulation/__pycache__/
+data_processing_code/data/
+data_processing_code/.env
+data_processing_code/build_and_search/indexes
+agentic_logic/indexes/
+agentic_logic/__pycache__/
 
 # Logs
 logs
