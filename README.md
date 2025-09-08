@@ -16,10 +16,10 @@ It’s simple, fast, and fun—built from real blog posts, emotion & sentiment m
 
 1. Open the app, **choose a persona** (e.g., Love, Surprise, Fear, Neutral vibes).  
 2. **Paste any statement** (news headline, tweet, your scenario).  
-3. Click **Generate**.  
-4. See the persona’s **Public** vs **Internal** reactions side‑by‑side—grounded by similar past posts we found.
+3. Click **Find Reaction**.  
+4. See the persona’s **Public** vs **Private** reactions side‑by‑side...grounded by similar past posts we found.
 
-> We don’t send matched text to the LLM—only attributes (emotions/sentiment/masking) once similarity is high—so the reaction stays persona‑aligned without copying anyone’s text.
+> We don’t send matched text to the LLM...only attributes (emotions/sentiment/masking) once similarity is high—so the reaction stays persona‑aligned without copying anyone’s text.
 
 ---
 
@@ -28,18 +28,18 @@ It’s simple, fast, and fun—built from real blog posts, emotion & sentiment m
 We keep the UI minimal so anyone can play with the idea quickly.
 
 - **Live code (public):**  
-  https://github.com/tarashagarwal/hr-agentic-ai/blob/main/src/app/auth/(dashboard)/dashboard/page.tsx
+  https://github.com/tarashagarwal/genz-persona-simulation/blob/main/src/app/auth/(dashboard)/dashboard/page.tsx
 
 **What’s on the page**
 - A **persona picker** (4 clusters discovered from data)
 - A **text box** for your input
-- A **Generate** button to call the backend agent
+- A **Find Reaction** button to call the backend agent
 - Two result cards:
   - **Public Reaction** (emotions + sentiment + masking applied)
-  - **Internal Thought** (emotions only)
+  - **Private Reaction (Internal Thought)** (emotions only)
 - Optional metadata: **similarity score**, **top emotions**, and whether **masking** seems likely
 
-> The dashboard is intentionally one page—no maze of routes. Paste text, pick persona, get reactions.
+> The dashboard is intentionally one page..no maze of routes. Paste text, pick persona, get reactions.
 
 ---
 
@@ -50,14 +50,17 @@ We keep the UI minimal so anyone can play with the idea quickly.
 - We enrich each post with **emotions** via **GoEmotions (RoBERTa)** and **sentiment** via a **Reddit‑trained XLNet** model.
 - If emotion and sentiment disagree, we flag it as **masking** (a realistic “I look fine, I feel awful” pattern).
 - We then discover **4 personas** by clustering primarily on emotional tendencies.
-- Finally, we build **four FAISS indexes**—one per persona. When you type something, we:
-  1) search the chosen persona’s index, 2) if similarity is high, 3) pull its attributes (emotions/sentiment/masking), and 4) ask an LLM to write both the **Public** and **Internal** reactions in that style.
+- Finally, we build **four FAISS indexes**...one per persona. When you type something, we:
+  1) search the chosen persona’s index,
+  2) if similarity is high, 
+  3) pull its attributes (emotions/sentiment/masking), and 
+  4) ask an LLM to write both the **Public** and **Internal** reactions in that style.
 
-That’s it—no massive training jobs, just smart reuse of signals already in the data.
+That’s it...no massive training jobs, just smart reuse of signals already in the data.
 
 ---
 
-## 🧪 Gen‑Z Persona Simulation — Design Notes
+## 🧪 Gen‑Z Persona Simulation ... Design Notes
 
 ### Data Sources & Rationale
 - We initially aimed for **PANDORA Talks** (demographics + personality): https://arxiv.org/pdf/2004.04460  
@@ -88,8 +91,8 @@ Why this route?
 - **Emotion vs Sentiment can diverge**; we treat that as **masking**.
 
 ### Ethical & Bias Considerations
-- **LLM tone** may soften strong language—true Gen‑Z speech can be spicier.  
-- **Zero‑shot** models may miss slang/cultural nuance—fine‑tuning would help.  
+- **LLM tone** may soften strong language...true Gen‑Z speech can be spicier.  
+- **Zero‑shot** models may miss slang/cultural nuance...fine‑tuning would help.  
 - **Sampling bias**: Blogger.com ≠ a perfect Gen‑Z mirror.
 
 ### Scaling Path to a Full Product
