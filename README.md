@@ -204,8 +204,3 @@ genz-persona-simulation/
 ```
 
 ---
-
-## 📝 License & Attribution
-- Respect the licenses/terms of the Blog Authorship Corpus and referenced models/datasets.
-- Cite **Google GoEmotions** and the respective Hugging Face model authors.
-- This repo ships processing & modeling code; **source datasets may require separate download/consent**.
