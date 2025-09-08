@@ -147,7 +147,13 @@ yarn dev
 # http://localhost:3000
 ```
 
-### 2) Start the Backend (Flask + Agent Logic)
+### 2) Build Indexes
+```bash
+cd agentic_logic
+python build_index.py
+```
+
+### 3) Start the Backend (Flask + Agent Logic)
 ```bash
 cd agentic_logic
 pip install -r requirements.txt
@@ -155,7 +161,7 @@ python -m agent.HRAgent
 # http://localhost:5000
 ```
 
-### 3) Log in (dev)
+### 4) Log in (dev)
 Any valid email/password *format* works. Example:
 ```
 Email:    test@gmail.com
@@ -176,7 +182,7 @@ Password: test12345678
 - GoEmotions model (HF) — https://huggingface.co/SamLowe/roberta-base-go_emotions  
 - Reddit Sentiment model (HF) — https://huggingface.co/minh21/XLNet-Reddit-Sentiment-Analysis  
 - Processed dataset (HF) — https://huggingface.co/datasets/tarashagarwal/genz-persona-simulation  
-- Frontend page (public) — https://github.com/tarashagarwal/hr-agentic-ai/blob/main/src/app/auth/(dashboard)/dashboard/page.tsx
+- Frontend page (public) — https://github.com/tarashagarwal/genz-persona-simulation/blob/main/src/app/auth/(dashboard)/dashboard/page.tsx
 
 ---
 
