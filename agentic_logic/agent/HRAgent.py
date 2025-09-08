@@ -12,7 +12,7 @@ import constants as C  # must exist next to search_and_match.py
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)   # allow all origins, all routes
+CORS(app, resources={r"/api/*": {"origins": "*"}})  # allow all origins, all routes
 
 # Uncomment if NOT using Next.js rewrite proxy and you call Flask directly from 3000:
 # CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}})
