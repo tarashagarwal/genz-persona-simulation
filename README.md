@@ -1,4 +1,4 @@
-# Gen‑Z Persona Simulation
+# ToneWeave: GenZ Persona Simulation
 
 ![Landing Page](https://github.com/user-attachments/assets/5ed2fd6d-c05b-4531-aa04-916cedf17dac)
 ![User Output](https://github.com/user-attachments/assets/1af82ab4-932c-422d-97cd-9ba180c17852)
