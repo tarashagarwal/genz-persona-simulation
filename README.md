@@ -1,5 +1,5 @@
 # ToneWeave: GenZ Persona Simulation
-
+![Architecture](https://github.com/user-attachments/assets/9c7531b6-5af2-4ac5-83ad-28123077c4f4)
 ![Landing Page](https://github.com/user-attachments/assets/5ed2fd6d-c05b-4531-aa04-916cedf17dac)
 ![User Output](https://github.com/user-attachments/assets/1af82ab4-932c-422d-97cd-9ba180c17852)
 
@@ -42,6 +42,8 @@ We keep the UI minimal so anyone can play with the idea quickly.
 > The dashboard is intentionally one page..no maze of routes. Paste text, pick persona, get reactions.
 
 ---
+
+![Splittng Personas](https://github.com/user-attachments/assets/e808f91f-0737-4b77-b744-290848699ab1)
 
 ## 🧠 How it works (descriptive version)
 
